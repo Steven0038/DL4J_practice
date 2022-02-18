@@ -96,6 +96,11 @@
             <version>${dl4j.version}</version>
             <classifier>linux-x86_64-cudnn</classifier>
         </dependency>
+        <dependency>
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-ui</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
 
         <!-- ParallelWrapper & ParallelInference live here -->
         <dependency>
