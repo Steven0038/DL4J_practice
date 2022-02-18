@@ -50,20 +50,21 @@ public class MalariaImagesClassifier {
 	//correspondent to the 0..9 digit classification
 	private static final int N_OUTCOMES = 2;
 
-	private static Logger log = LoggerFactory.getLogger(MalariaImagesClassifier.class);
-
-	private static String datasetRootFolder;
+	private static final Logger log = LoggerFactory.getLogger(MalariaImagesClassifier.class);
 
 	public static void main(String[] args) throws IOException {
 
 		//The absolute path of the folder containing MNIST training and testing subfolders
 		String sys = System.getProperty("os.name");
+		String datasetRootFolder;
 		if (sys.contains("Linux")) {
 			datasetRootFolder = "/DISK-G/ML/detect-malaria/";
 		} else {
 //			datasetRootFolder = "G:/ML/detect-malaria/";
 			datasetRootFolder = "E:/dataset/detect-malaria/cell_images/";
 		}
+
+		String modelSaveFolder = "E:/dataset/detect-malaria/";
 
 		Nd4j.getMemoryManager().togglePeriodicGc(true);
 		Nd4j.getMemoryManager().setAutoGcWindow(5000);
@@ -129,7 +130,7 @@ public class MalariaImagesClassifier {
         log.info("Train model....");
         model.fit(dsi, nEpochs);
 
-		DataSetIterator testDsi = getDataSetIterator( datasetRootFolder , N_SAMPLES_TRAINING);
+		DataSetIterator testDsi = getDataSetIterator(datasetRootFolder, N_SAMPLES_TRAINING);
         log.info("Evaluate model....");
         Evaluation eval = model.evaluate(testDsi);
         log.info(eval.stats());
@@ -139,7 +140,7 @@ public class MalariaImagesClassifier {
 		log.info("\n\nTotal time: "+t+" seconds");
 
 		// 保存模型
-		File malariaModelPath = new File(datasetRootFolder + "/malaria-model.zip");
+		File malariaModelPath = new File(modelSaveFolder + "/malaria-model.zip");
 		ModelSerializer.writeModel(model, malariaModelPath, true);
 		log.info("最新的 malaria 模型保存在[{}]", malariaModelPath.getPath());
 

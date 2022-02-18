@@ -8,15 +8,11 @@ import org.datavec.image.loader.NativeImageLoader;
 import org.datavec.image.recordreader.ImageRecordReader;
 import org.datavec.image.transform.*;
 import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
-import org.deeplearning4j.nn.conf.BackpropType;
-import org.deeplearning4j.nn.conf.GradientNormalization;
-import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
-import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
+import org.deeplearning4j.nn.conf.*;
 import org.deeplearning4j.nn.conf.distribution.NormalDistribution;
 import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.*;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.evaluation.classification.Evaluation;
@@ -26,7 +22,6 @@ import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
-//import org.nd4j.linalg.primitives.Pair;
 import org.nd4j.common.primitives.Pair;
 import org.nd4j.linalg.schedule.ScheduleType;
 import org.nd4j.linalg.schedule.StepSchedule;
@@ -34,10 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class AnimalClassifier {
 
@@ -47,6 +39,7 @@ public class AnimalClassifier {
     private static final Integer epoch = 10;
 
     private static final String datasetName = "MultiClassWeatherDataset";
+//    private static final String datasetName = "WeatherImageRecognition"; // FIXME: A fatal error has been detected by the Java Runtime Environment
 
     private static final Logger log = LoggerFactory.getLogger(AnimalClassifier.class);
 
@@ -57,12 +50,11 @@ public class AnimalClassifier {
         int batchSize = 10;
 
         //load files and split
-//        File parentDir = new File("E:\\dataset\\WeatherImageRecognition");
 //        File parentDir = new File("E:\\dataset\\StanfordCarBodyTypeData\\stanford_cars_type");
         File parentDir = new File("E:\\dataset\\" + datasetName);
 //        File parentDir = new File("E:\\dataset\\cifar10_dl4j.v1\\train");
         FileSplit fileSplit = new FileSplit(parentDir, NativeImageLoader.ALLOWED_FORMATS, new Random(42));
-        int numLabels = fileSplit.getRootDir().listFiles(File::isDirectory).length;
+        int numLabels = Objects.requireNonNull(fileSplit.getRootDir().listFiles(File::isDirectory)).length;
 
         //identify labels in the path
         ParentPathLabelGenerator parentPathLabelGenerator = new ParentPathLabelGenerator();
@@ -186,7 +178,7 @@ public class AnimalClassifier {
         Evaluation evaluation = model.evaluate(dataSetIterator);
         System.out.println("args = [" + evaluation.stats() + "]");
 
-        File modelFile = new File("cnntrainedmodel" + datasetName + new Date().getTime() + ".zip");
+        File modelFile = new File("cnnTrainedModel-" + datasetName + new Date().getTime() + ".zip");
         log.info("saving model file to: " + modelFile.getAbsolutePath());
         ModelSerializer.writeModel(model, modelFile, true);
         ModelSerializer.addNormalizerToModel(modelFile, scaler);
