@@ -54,18 +54,14 @@
         <!-- Log dependency -->
         <dependency>
             <groupId>org.slf4j</groupId>
-
-
             <artifactId>slf4j-api</artifactId>
             <version>1.7.25</version>
         </dependency>
         <dependency>
-
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>${logback.version}</version>
         </dependency>
-
 
         <!-- deeplearning4j-core: contains main functionality and neural networks -->
         <dependency>
@@ -78,24 +74,26 @@
             <artifactId>nd4j-native</artifactId>
             <version>${dl4j.version}</version>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>org.deeplearning4j</groupId>-->
-<!--            <artifactId>deeplearning4j-cuda-11.2</artifactId>-->
-<!--            <version>${dl4j.version}</version>-->
-<!--        </dependency>-->
 
+        <!--GPU support-->
+        <dependency>
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-cuda-11.2</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.nd4j</groupId>
             <artifactId>nd4j-cuda-11.2-platform</artifactId>
             <version>${dl4j.version}</version>
         </dependency>
-        <!-- new directive -->
         <dependency>
             <groupId>org.nd4j</groupId>
             <artifactId>nd4j-cuda-11.2</artifactId>
             <version>${dl4j.version}</version>
             <classifier>linux-x86_64-cudnn</classifier>
         </dependency>
+
+        <!--WEB UI-->
         <dependency>
             <groupId>org.deeplearning4j</groupId>
             <artifactId>deeplearning4j-ui</artifactId>

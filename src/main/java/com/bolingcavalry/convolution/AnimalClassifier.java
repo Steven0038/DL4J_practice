@@ -7,14 +7,25 @@ import org.datavec.api.split.InputSplit;
 import org.datavec.image.loader.NativeImageLoader;
 import org.datavec.image.recordreader.ImageRecordReader;
 import org.datavec.image.transform.*;
+import org.deeplearning4j.core.storage.StatsStorage;
 import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
-import org.deeplearning4j.nn.conf.*;
+import org.deeplearning4j.nn.conf.BackpropType;
+import org.deeplearning4j.nn.conf.GradientNormalization;
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
+import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.distribution.NormalDistribution;
 import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.*;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.nn.weights.WeightInitDistribution;
+import org.deeplearning4j.optimize.api.InvocationType;
+import org.deeplearning4j.optimize.listeners.EvaluativeListener;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
+import org.deeplearning4j.ui.api.UIServer;
+import org.deeplearning4j.ui.model.stats.StatsListener;
+import org.deeplearning4j.ui.model.storage.FileStatsStorage;
 import org.deeplearning4j.util.ModelSerializer;
+import org.nd4j.common.primitives.Pair;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
@@ -22,7 +33,6 @@ import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
-import org.nd4j.common.primitives.Pair;
 import org.nd4j.linalg.schedule.ScheduleType;
 import org.nd4j.linalg.schedule.StepSchedule;
 import org.slf4j.Logger;
@@ -38,8 +48,9 @@ public class AnimalClassifier {
     //    private static final Integer epoch = 100;
     private static final Integer epoch = 10;
 
-    private static final String datasetName = "MultiClassWeatherDataset";
+//    private static final String datasetName = "MultiClassWeatherDataset";
 //    private static final String datasetName = "WeatherImageRecognition"; // FIXME: A fatal error has been detected by the Java Runtime Environment
+    private static final String datasetName = "cifar10_dl4j.v1";
 
     private static final Logger log = LoggerFactory.getLogger(AnimalClassifier.class);
 
@@ -51,8 +62,8 @@ public class AnimalClassifier {
 
         //load files and split
 //        File parentDir = new File("E:\\dataset\\StanfordCarBodyTypeData\\stanford_cars_type");
-        File parentDir = new File("E:\\dataset\\" + datasetName);
-//        File parentDir = new File("E:\\dataset\\cifar10_dl4j.v1\\train");
+//        File parentDir = new File("E:\\dataset\\" + datasetName);
+        File parentDir = new File("E:\\dataset\\cifar10_dl4j.v1\\train");
         FileSplit fileSplit = new FileSplit(parentDir, NativeImageLoader.ALLOWED_FORMATS, new Random(42));
         int numLabels = Objects.requireNonNull(fileSplit.getRootDir().listFiles(File::isDirectory)).length;
 
@@ -94,6 +105,7 @@ public class AnimalClassifier {
 
         MultiLayerConfiguration config;
         config = new NeuralNetConfiguration.Builder()
+                .cudnnAlgoMode(ConvolutionLayer.AlgoMode.NO_WORKSPACE) // CUDNN GPU support optimize memory
 //                .weightInit(WeightInit.DISTRIBUTION)
 //                .dist(new NormalDistribution(0.0, 0.01))
                 .activation(Activation.RELU)
@@ -125,12 +137,14 @@ public class AnimalClassifier {
                         .build())
                 .layer(new DenseLayer.Builder()
                         .nOut(500)
-                        .dist(new NormalDistribution(0.001, 0.005))
+//                        .dist(new NormalDistribution(0.001, 0.005))
+                        .weightInit(new WeightInitDistribution(new NormalDistribution(0.001, 0.005)))
                         .activation(Activation.RELU)
                         .build())
                 .layer(new DenseLayer.Builder()
                         .nOut(500)
-                        .dist(new NormalDistribution(0.001, 0.005))
+//                        .dist(new NormalDistribution(0.001, 0.005))
+                        .weightInit(new WeightInitDistribution(new NormalDistribution(0.001, 0.005)))
                         .activation(Activation.RELU)
                         .build())
                 .layer(new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
@@ -149,7 +163,13 @@ public class AnimalClassifier {
         dataSetIterator.setPreProcessor(scaler);
         MultiLayerNetwork model = new MultiLayerNetwork(config);
         model.init();
-        model.setListeners(new ScoreIterationListener(100)); //PerformanceListener for optimized training
+
+        UIServer uiServer = UIServer.getInstance();
+        StatsStorage statsStorage = new FileStatsStorage(new File(System.getProperty("java.io.tmpdir"), "ui-stats.dl4j"));
+        uiServer.attach(statsStorage);
+        model.setListeners(new StatsListener(statsStorage), new ScoreIterationListener(50), new EvaluativeListener(dataSetIterator, 1, InvocationType.EPOCH_END));
+
+//        model.setListeners(new ScoreIterationListener(100)); //PerformanceListener for optimized training
         model.fit(dataSetIterator, epoch);
 
         //train with transformations
