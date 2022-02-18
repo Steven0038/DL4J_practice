@@ -60,13 +60,13 @@ import java.io.File;
 public class CIFARClassifier {
     protected static final Logger log = LoggerFactory.getLogger(CIFARClassifier.class);
 
-    private static int height = 32;
-    private static int width = 32;
-    private static int channels = 3;
-    private static int numLabels = CifarLoader.NUM_LABELS;
-    private static int batchSize = 96;
-    private static long seed = 123L;
-    private static int epochs = 10;
+    private static final int height = 32;
+    private static final int width = 32;
+    private static final int channels = 3;
+    private static final int numLabels = CifarLoader.NUM_LABELS;
+    private static final int batchSize = 96;
+    private static final long seed = 123L;
+    private static final int epochs = 10;
 
     public static void main(String[] args) throws Exception {
         CIFARClassifier cf = new CIFARClassifier();
