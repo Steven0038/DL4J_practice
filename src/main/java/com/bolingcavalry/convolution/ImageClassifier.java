@@ -25,7 +25,6 @@ import org.deeplearning4j.ui.api.UIServer;
 import org.deeplearning4j.ui.model.stats.StatsListener;
 import org.deeplearning4j.ui.model.storage.FileStatsStorage;
 import org.deeplearning4j.util.ModelSerializer;
-import org.nd4j.common.primitives.Pair;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
@@ -41,21 +40,29 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.util.*;
 
-public class AnimalClassifier {
+/**
+ * ref.https://github.com/rahul-raj/Java-Deep-Learning-Cookbook
+ */
+public class ImageClassifier {
 
     private static final long seed = 12345;
     private static final Random randNumGen = new Random(seed);
     //    private static final Integer epoch = 100;
-//    private static final Integer epoch = 10;
-    private static final Integer epoch = 5; // stanford_cars_type
+//    private static final Integer epoch = 10; // FIXME: large epoch will cause exception
+    private static final Integer epoch = 3;
     private static final Integer batchSize = 10;
+    private static final Integer height = 30;
+    private static final Integer width = 30;
+//    private static final Integer height = 32; // cifar10
+//    private static final Integer width = 32;
 
-//    private static final String datasetName = "MultiClassWeatherDataset";
+
+    private static final String datasetName = "MultiClassWeatherDataset";
 //    private static final String datasetName = "WeatherImageRecognition"; // FIXME: A fatal error has been detected by the Java Runtime Environment
 //    private static final String datasetName = "cifar10_dl4j.v1";
-    private static final String datasetName = "stanford_cars_type";
+//    private static final String datasetName = "stanford_cars_type";
 
-    private static final Logger log = LoggerFactory.getLogger(AnimalClassifier.class);
+    private static final Logger log = LoggerFactory.getLogger(ImageClassifier.class);
 
     public static void main(String[] args) throws Exception {
 
@@ -63,8 +70,8 @@ public class AnimalClassifier {
         int channels = 3;
 
         //load files and split
-//        File parentDir = new File("E:\\dataset\\" + datasetName);
-        File parentDir = new File("E:\\dataset\\StanfordCarBodyTypeData\\stanford_cars_type");
+        File parentDir = new File("E:\\dataset\\" + datasetName);
+//        File parentDir = new File("E:\\dataset\\StanfordCarBodyTypeData\\stanford_cars_type");
 //        File parentDir = new File("E:\\dataset\\cifar10_dl4j.v1\\train");
         FileSplit fileSplit = new FileSplit(parentDir, NativeImageLoader.ALLOWED_FORMATS, new Random(42));
         int numLabels = Objects.requireNonNull(fileSplit.getRootDir().listFiles(File::isDirectory)).length;
@@ -108,6 +115,58 @@ public class AnimalClassifier {
 
         DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
 
+        MultiLayerConfiguration config = getModelConfig(channels, numLabels);
+
+        //train without transformations
+        ImageRecordReader imageRecordReader = new ImageRecordReader(height, width, channels, parentPathLabelGenerator);
+        imageRecordReader.initialize(trainData, null);
+        DataSetIterator dataSetIterator = new RecordReaderDataSetIterator(imageRecordReader, batchSize, 1, numLabels);
+        scaler.fit(dataSetIterator);
+        dataSetIterator.setPreProcessor(scaler);
+        MultiLayerNetwork model = new MultiLayerNetwork(config);
+        model.init();
+
+        UIServer uiServer = UIServer.getInstance();
+        StatsStorage statsStorage = new FileStatsStorage(new File(System.getProperty("java.io.tmpdir"), "ui-stats.dl4j"));
+        uiServer.attach(statsStorage);
+        model.setListeners(new StatsListener(statsStorage), new ScoreIterationListener(50), new EvaluativeListener(dataSetIterator, 1, InvocationType.EPOCH_END));
+
+//        model.setListeners(new ScoreIterationListener(100)); //PerformanceListener for optimized training
+        model.fit(dataSetIterator, epoch);
+
+        //train with transformations
+        imageRecordReader.initialize(trainData, transform);
+        dataSetIterator = new RecordReaderDataSetIterator(imageRecordReader, batchSize, 1, numLabels);
+        scaler.fit(dataSetIterator);
+        dataSetIterator.setPreProcessor(scaler);
+        model.fit(dataSetIterator, epoch);
+
+        imageRecordReader.initialize(testData);
+        dataSetIterator = new RecordReaderDataSetIterator(imageRecordReader, batchSize, 1, numLabels);
+        scaler.fit(dataSetIterator);
+        dataSetIterator.setPreProcessor(scaler);
+
+        // Another way to perform evaluation.
+        // ClassificationScoreCalculator accuracyCalculator = new ClassificationScoreCalculator(Evaluation.Metric.ACCURACY,dataSetIterator);
+        // ClassificationScoreCalculator f1ScoreCalculator = new ClassificationScoreCalculator(Evaluation.Metric.F1,dataSetIterator);
+        // ClassificationScoreCalculator precisionCalculator = new ClassificationScoreCalculator(Evaluation.Metric.PRECISION,dataSetIterator);
+        // ClassificationScoreCalculator recallCalculator = new ClassificationScoreCalculator(Evaluation.Metric.RECALL,dataSetIterator);
+        // Evaluation evaluation = model.evaluate(dataSetIterator);
+        // System.out.println("Accuracy =" + accuracyCalculator.calculateScore(model) + "");
+        // System.out.println("F1 Score =" + f1ScoreCalculator.calculateScore(model) + "");
+        // System.out.println("Precision =" + precisionCalculator.calculateScore(model) + "");
+        // System.out.println("Recall =" + recallCalculator.calculateScore(model) + "");
+
+        Evaluation evaluation = model.evaluate(dataSetIterator);
+        System.out.println("args = [" + evaluation.stats() + "]");
+
+        File modelFile = new File("cnnTrainedModel-" + datasetName + new Date().getTime() + ".zip");
+        log.info("saving model file to: " + modelFile.getAbsolutePath());
+        ModelSerializer.writeModel(model, modelFile, true);
+        ModelSerializer.addNormalizerToModel(modelFile, scaler);
+    }
+
+    public static MultiLayerConfiguration getModelConfig(int channels, int numLabels) {
         MultiLayerConfiguration config;
         config = new NeuralNetConfiguration.Builder()
                 .cudnnAlgoMode(ConvolutionLayer.AlgoMode.NO_WORKSPACE) // CUDNN GPU support optimize memory
@@ -156,56 +215,9 @@ public class AnimalClassifier {
                         .nOut(numLabels)
                         .activation(Activation.SOFTMAX)
                         .build())
-                .setInputType(InputType.convolutional(30, 30, 3)).backpropType(BackpropType.Standard)
+                .setInputType(InputType.convolutional(height, width, 3)).backpropType(BackpropType.Standard)
                 .build();
-
-
-        //train without transformations
-        ImageRecordReader imageRecordReader = new ImageRecordReader(30, 30, channels, parentPathLabelGenerator);
-        imageRecordReader.initialize(trainData, null);
-        DataSetIterator dataSetIterator = new RecordReaderDataSetIterator(imageRecordReader, batchSize, 1, numLabels);
-        scaler.fit(dataSetIterator);
-        dataSetIterator.setPreProcessor(scaler);
-        MultiLayerNetwork model = new MultiLayerNetwork(config);
-        model.init();
-
-        UIServer uiServer = UIServer.getInstance();
-        StatsStorage statsStorage = new FileStatsStorage(new File(System.getProperty("java.io.tmpdir"), "ui-stats.dl4j"));
-        uiServer.attach(statsStorage);
-        model.setListeners(new StatsListener(statsStorage), new ScoreIterationListener(50), new EvaluativeListener(dataSetIterator, 1, InvocationType.EPOCH_END));
-
-//        model.setListeners(new ScoreIterationListener(100)); //PerformanceListener for optimized training
-        model.fit(dataSetIterator, epoch);
-
-        //train with transformations
-        imageRecordReader.initialize(trainData, transform);
-        dataSetIterator = new RecordReaderDataSetIterator(imageRecordReader, batchSize, 1, numLabels);
-        scaler.fit(dataSetIterator);
-        dataSetIterator.setPreProcessor(scaler);
-        model.fit(dataSetIterator, epoch);
-
-        imageRecordReader.initialize(testData);
-        dataSetIterator = new RecordReaderDataSetIterator(imageRecordReader, batchSize, 1, numLabels);
-        scaler.fit(dataSetIterator);
-        dataSetIterator.setPreProcessor(scaler);
-
-        // Another way to perform evaluation.
-        // ClassificationScoreCalculator accuracyCalculator = new ClassificationScoreCalculator(Evaluation.Metric.ACCURACY,dataSetIterator);
-        // ClassificationScoreCalculator f1ScoreCalculator = new ClassificationScoreCalculator(Evaluation.Metric.F1,dataSetIterator);
-        // ClassificationScoreCalculator precisionCalculator = new ClassificationScoreCalculator(Evaluation.Metric.PRECISION,dataSetIterator);
-        // ClassificationScoreCalculator recallCalculator = new ClassificationScoreCalculator(Evaluation.Metric.RECALL,dataSetIterator);
-        // Evaluation evaluation = model.evaluate(dataSetIterator);
-        // System.out.println("Accuracy =" + accuracyCalculator.calculateScore(model) + "");
-        // System.out.println("F1 Score =" + f1ScoreCalculator.calculateScore(model) + "");
-        // System.out.println("Precision =" + precisionCalculator.calculateScore(model) + "");
-        // System.out.println("Recall =" + recallCalculator.calculateScore(model) + "");
-
-        Evaluation evaluation = model.evaluate(dataSetIterator);
-        System.out.println("args = [" + evaluation.stats() + "]");
-
-        File modelFile = new File("cnnTrainedModel-" + datasetName + new Date().getTime() + ".zip");
-        log.info("saving model file to: " + modelFile.getAbsolutePath());
-        ModelSerializer.writeModel(model, modelFile, true);
-        ModelSerializer.addNormalizerToModel(modelFile, scaler);
+        return config;
     }
+
 }
