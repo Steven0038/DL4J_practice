@@ -44,9 +44,11 @@ public class AnimalClassifier {
     private static final long seed = 12345;
     private static final Random randNumGen = new Random(seed);
     //    private static final Integer epoch = 100;
-    private static final Integer epoch = 10;
+//    private static final Integer epoch = 10;
+    private static final Integer epoch = 2;
 
-    private static final String datasetName = "MultiClassWeatherDataset";
+//    private static final String datasetName = "MultiClassWeatherDataset";
+    private static final String datasetName = "cifar10";
 
     private static final Logger log = LoggerFactory.getLogger(AnimalClassifier.class);
 
@@ -59,8 +61,8 @@ public class AnimalClassifier {
         //load files and split
 //        File parentDir = new File("E:\\dataset\\WeatherImageRecognition");
 //        File parentDir = new File("E:\\dataset\\StanfordCarBodyTypeData\\stanford_cars_type");
-        File parentDir = new File("E:\\dataset\\" + datasetName);
-//        File parentDir = new File("E:\\dataset\\cifar10_dl4j.v1\\train");
+//        File parentDir = new File("E:\\dataset\\" + datasetName);
+        File parentDir = new File("E:\\dataset\\cifar10_dl4j.v1\\train");
         FileSplit fileSplit = new FileSplit(parentDir, NativeImageLoader.ALLOWED_FORMATS, new Random(42));
         int numLabels = fileSplit.getRootDir().listFiles(File::isDirectory).length;
 
